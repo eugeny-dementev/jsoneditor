@@ -205,13 +205,15 @@ History.prototype.canRedo = function () {
  * Undo the last action
  */
 History.prototype.undo = function () {
+  var params;
   if (this.canUndo()) {
     var obj = this.history[this.index];
     if (obj) {
       var action = this.actions[obj.action];
       if (action && action.undo) {
-        action.undo(obj.params);
-        if (obj.params.oldSelection) {
+        params = obj.params;
+        action.undo(params);
+        if (params.oldSelection) {
           this.editor.setSelection(obj.params.oldSelection);
         }
       }
@@ -224,12 +226,15 @@ History.prototype.undo = function () {
     // fire onchange event
     this.onChange();
   }
+
+  return params;
 };
 
 /**
  * Redo the last action
  */
 History.prototype.redo = function () {
+  var params;
   if (this.canRedo()) {
     this.index++;
 
@@ -237,6 +242,7 @@ History.prototype.redo = function () {
     if (obj) {
       var action = this.actions[obj.action];
       if (action && action.redo) {
+        params = obj.params;
         action.redo(obj.params);
         if (obj.params.newSelection) {
           this.editor.setSelection(obj.params.newSelection);
@@ -250,6 +256,7 @@ History.prototype.redo = function () {
     // fire onchange event
     this.onChange();
   }
+  return params;
 };
 
 /**

@@ -1,6 +1,7 @@
 var ContextMenu = require('./ContextMenu');
 var appendNodeFactory = require('./appendNodeFactory');
 var util = require('./util');
+var clone = require('lodash/clone');
 
 /**
  * @constructor Node
@@ -20,10 +21,12 @@ function Node (editor, params) {
   this.expanded = false;
 
   if(params && (params instanceof Object)) {
+    this.setObjPath(params.objPath);
     this.setField(params.field, params.fieldEditable);
     this.setValue(params.value, params.type);
   }
   else {
+    this.setObjPath([]);
     this.setField('');
     this.setValue(null);
   }
@@ -132,7 +135,8 @@ Node.prototype.findParents = function () {
 
 /**
  *
- * @param {{dataPath: string, keyword: string, message: string, params: Object, schemaPath: string} | null} error
+ * @param {{dataPath: string, keyword: string, message: string, params: Object, schemaPath: string}
+ *   | null} error
  * @param {Node} [child]  When this is the error of a parent node, pointing
  *                        to an invalid child node, the child node itself
  *                        can be provided. If provided, clicking the error
@@ -233,6 +237,14 @@ Node.prototype.setField = function(field, fieldEditable) {
   this.fieldEditable = (fieldEditable === true);
 };
 
+Node.prototype.setObjPath = function(path) {
+  this.objPath = path;
+};
+
+Node.prototype.getObjPath = function() {
+  return this.objPath;
+};
+
 /**
  * Get field
  * @return {String}
@@ -253,6 +265,7 @@ Node.prototype.getField = function() {
  */
 Node.prototype.setValue = function(value, type) {
   var childValue, child;
+  var self = this;
 
   // first clear all current childs (if any)
   var childs = this.childs;
@@ -286,6 +299,7 @@ Node.prototype.setValue = function(value, type) {
       if (childValue !== undefined && !(childValue instanceof Function)) {
         // ignore undefined and functions
         child = new Node(this.editor, {
+          objPath: self._pickPath(i),
           value: childValue
         });
         this.appendChild(child);
@@ -302,6 +316,7 @@ Node.prototype.setValue = function(value, type) {
         if (childValue !== undefined && !(childValue instanceof Function)) {
           // ignore undefined and functions
           child = new Node(this.editor, {
+            objPath: self._pickPath(childField),
             field: childField,
             value: childValue
           });
@@ -410,6 +425,32 @@ Node.prototype.clone = function() {
   }
 
   return clone;
+};
+
+Node.prototype.expendByPath = function (path) {
+  if (!this.childs) {
+    return;
+  }
+
+  if (!path.length) {
+    return;
+  }
+
+  this.expand(false);
+
+
+  var field = path[1];
+  var type = util.type(field);
+  var fieldsMap = {
+    number: 'index',
+    string: 'field'
+  };
+
+  this.childs.forEach((child) => {
+    if (child[fieldsMap[type]] == field) {
+      child.expendByPath(path.slice(1));
+    }
+  });
 };
 
 /**
@@ -1159,6 +1200,7 @@ Node.prototype._onChangeValue = function () {
     node: this,
     oldValue: this.previousValue,
     newValue: this.value,
+    fieldPath: this.getObjPath(),
     oldSelection: oldSelection,
     newSelection: newSelection
   });
@@ -2290,7 +2332,8 @@ Node.prototype.onKeyDown = function (event) {
   else if (keynum == 69) { // E
     if (ctrlKey) {       // Ctrl+E and Ctrl+Shift+E
       this._onExpand(shiftKey);  // recurse = shiftKey
-      target.focus(); // TODO: should restore focus in case of recursing expand (which takes DOM offline)
+      target.focus(); // TODO: should restore focus in case of recursing expand (which takes DOM
+                      // offline)
       handled = true;
     }
   }
@@ -2644,10 +2687,12 @@ Node.onDuplicate = function(nodes) {
  */
 Node.prototype._onInsertBefore = function (field, value, type) {
   var oldSelection = this.editor.getSelection();
+  var self = this;
 
   var newNode = new Node(this.editor, {
     field: (field != undefined) ? field : '',
     value: (value != undefined) ? value : '',
+    objPath: self._pickPath(field),
     type: type
   });
   newNode.expand(true);
@@ -2674,10 +2719,12 @@ Node.prototype._onInsertBefore = function (field, value, type) {
  */
 Node.prototype._onInsertAfter = function (field, value, type) {
   var oldSelection = this.editor.getSelection();
+  var self = this;
 
   var newNode = new Node(this.editor, {
     field: (field != undefined) ? field : '',
     value: (value != undefined) ? value : '',
+    objPath: self._pickPath(field),
     type: type
   });
   newNode.expand(true);
@@ -2704,10 +2751,12 @@ Node.prototype._onInsertAfter = function (field, value, type) {
  */
 Node.prototype._onAppend = function (field, value, type) {
   var oldSelection = this.editor.getSelection();
+  var self = this;
 
   var newNode = new Node(this.editor, {
     field: (field != undefined) ? field : '',
     value: (value != undefined) ? value : '',
+    objPath: self._pickPath(field),
     type: type
   });
   newNode.expand(true);
@@ -3383,6 +3432,12 @@ Node.prototype._escapeJSON = function (text) {
   }
 
   return escaped;
+};
+
+Node.prototype._pickPath = function(field) {
+  var path = clone(this.getObjPath()) || [];
+  path.push(field);
+  return path;
 };
 
 // TODO: find a nicer solution to resolve this circular dependency between Node and AppendNode
