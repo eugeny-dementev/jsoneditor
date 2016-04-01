@@ -28,7 +28,7 @@
 <body>
 
 <p>
-  Switch editor mode using the mode box.
+  Switch editor mode using the mode 6ubox.
   Note that the mode can be changed programmatically as well using the method
   <code>editor.setMode(mode)</code>, try it in the console of your browser.
 </p>
@@ -48,25 +48,19 @@
     onError: function (err) {
       alert(err.toString());
     },
-    onChange: function () {
-      console.log('change');
+    onChange: function (params) {
+      console.log('change', params);
+      console.log('editor', editor);
     },
     indentation: 4,
     escapeUnicode: true
   };
 
   json = {
-    "array": [1, 2, [3,4,5]],
-    "boolean": true,
-    "htmlcode": '&quot;',
-    "escaped_unicode": '\\u20b9',
-    "unicode": '\u20b9,\uD83D\uDCA9',
-    "return": '\n',
-    "null": null,
-    "number": 123,
-    "object": {"a": "b", "c": "d"},
-    "string": "Hello World",
-    "url": "http://jsoneditoronline.org"
+    "array": [1, 2, [3, 4, [5, 6, 7]]],
+    "obj": {
+      "hello": "bye"
+    }
   };
 
   editor = new JSONEditor(container, options, json);

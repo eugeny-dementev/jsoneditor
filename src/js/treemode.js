@@ -123,6 +123,10 @@ treemode._setOptions = function (options) {
   this._debouncedValidate = util.debounce(this.validate.bind(this), this.DEBOUNCE_INTERVAL);
 };
 
+treemode.expendByPath = function (path) {
+  this.node.expendByPath([undefined, ...path]);
+};
+
 /**
  * Set JSON object in editor
  * @param {Object | undefined} json      JSON data
@@ -147,7 +151,8 @@ treemode.set = function (json, name) {
     // replace the root node
     var params = {
       field: this.options.name,
-      value: json
+      value: json,
+      objPath: []
     };
     var node = new Node(this, params);
     this._setRoot(node);
@@ -158,6 +163,8 @@ treemode.set = function (json, name) {
     // expand
     var recurse = false;
     this.node.expand(recurse);
+
+    this.expendByPath(['array', 2]);
 
     this.content.appendChild(this.table);  // Put the table online again
   }
@@ -346,7 +353,7 @@ treemode._onAction = function (action, params) {
     this.history.add(action, params);
   }
 
-  this._onChange();
+  this._onChange(params);
 };
 
 /**
@@ -355,14 +362,14 @@ treemode._onAction = function (action, params) {
  * - Send a callback to the onChange listener if provided
  * @private
  */
-treemode._onChange = function () {
+treemode._onChange = function (params) {
   // validate JSON schema (if configured)
   this._debouncedValidate();
 
   // trigger the onChange callback
   if (this.options.onChange) {
     try {
-      this.options.onChange();
+      this.options.onChange(params);
     }
     catch (err) {
       console.error('Error in onChange callback: ', err);
@@ -732,10 +739,15 @@ treemode._createFrame = function () {
 treemode._onUndo = function () {
   if (this.history) {
     // undo last action
-    this.history.undo();
+    var params = this.history.undo();
 
     // fire change event
-    this._onChange();
+    this._onChange({
+      fieldPath: params.fieldPath,
+      newValue: params.oldValue,
+      oldValue: params.newValue,
+      node: params.node
+    });
   }
 };
 
@@ -746,10 +758,15 @@ treemode._onUndo = function () {
 treemode._onRedo = function () {
   if (this.history) {
     // redo last action
-    this.history.redo();
+    var params = this.history.redo();
 
     // fire change event
-    this._onChange();
+    this._onChange({
+      fieldPath: params.fieldPath,
+      newValue: params.newValue,
+      oldValue: params.oldValue,
+      node: params.node
+    });
   }
 };
 
